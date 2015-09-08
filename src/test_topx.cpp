@@ -30,13 +30,11 @@
 
 using namespace std;
 
-const int g_nProductLogSum = 50000000;  // 产生日志条数
-const int g_nThreadNum = 8;             // 使用几个线程同时count 
-const int g_nTopX = 10000;              // top x
+const int g_nProductLogSum = 50000;  // 产生日志条数
+const int g_nThreadNum = 5;             // 使用几个线程同时count 
+const int g_nTopX = 100;              // top x
 
 LogsCount g_logscount[g_nThreadNum]; // 每个线程产生的中间结果 
-ThreadPool g_threadpool(30);         // 线程池
-
 
 // 输出vector<LogInfor>容器元素
 void prt(vector<LogInfor>& datavec)
@@ -110,7 +108,7 @@ void thread_fun_sum(void *arg)
 
 // 调用线程count
 // 直接依赖与全局变量是不好的做法，有时间的话可以改为传入参数的方式
-void countSum(int num)
+void countSum(int num, ThreadPool& threadpool)
 {
     for (int i = 0; i < num/2; ++i)
     {
@@ -121,28 +119,28 @@ void countSum(int num)
         Work w;
         w.function = thread_fun_sum;
         w.arg = arg;
-        g_threadpool.AddWork(w);
+        threadpool.AddWork(w);
     }
 
-    while(!g_threadpool.AllFree())
+    while(!threadpool.AllFree())
         sleep(1);
 }
 
 void CreateLog(vector<string>& datasrc)
 {
     // 直接调整大小为g_nProductLogSum,优化vector存放数据的性能
-    datasrc.resize(g_nProductLogSum);
+    datasrc.reserve(g_nProductLogSum);
     srand((int)time(NULL));
     char tmp[1024];
     for(int i = 0; i < g_nProductLogSum; ++i)
     {
-        sprintf(tmp, "%dabcskdjfkaskfdkajdfkjaksfldaskdlfakls", (rand() + rand())%100000);
-        datasrc[i] = tmp;
+        sprintf(tmp, "%d", (rand() + rand())%10000);
+        datasrc.push_back(tmp);
     }
 }
 
 // 直接依赖与全局变量是不好的做法，有时间的话可以改为传入参数的方式
-void LogCount(vector<string>& datasrc)
+void LogCount(vector<string>& datasrc, ThreadPool& threadpool)
 {
     cout << "start logcount" << endl;
     time_t beginTime = time(0);
@@ -163,10 +161,10 @@ void LogCount(vector<string>& datasrc)
         Work w;
         w.function = thread_fun_count;
         w.arg = (void *)arg;
-        g_threadpool.AddWork(w);  // 向线程池添加任务
+        threadpool.AddWork(w);  // 向线程池添加任务
     }
 
-    while(!g_threadpool.AllFree()) // 等待任务执行结束
+    while(!threadpool.AllFree()) // 等待任务执行结束
         sleep(1);
 
     time_t countEndTime = time(0);
@@ -176,7 +174,7 @@ void LogCount(vector<string>& datasrc)
     int needSumNum = g_nThreadNum;
     while (needSumNum > 1)
     {
-        countSum(needSumNum);
+        countSum(needSumNum, threadpool);
 
         if (needSumNum % 2 == 0)
             needSumNum = needSumNum / 2;
@@ -210,9 +208,10 @@ vector<LogInfor>::iterator FindTopX(vector<LogInfor>& datavec)
 
 int main()
 {
+	ThreadPool  threadpool(30);
     vector<string> datasrc;         // 用于存储产生的伪造日志
     CreateLog(datasrc); // 目前没有真实的日志数据，则自己伪造数据
-    LogCount(datasrc); // 统计数据
+    LogCount(datasrc, threadpool); // 统计数据
    
     vector<LogInfor> datavec;
     vector<LogInfor>::iterator start = FindTopX(datavec); // find topx
