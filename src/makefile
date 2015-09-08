@@ -1,10 +1,17 @@
-main : test_topx.cpp TopX.o LogsCount.o ThreadPool.o
-	g++ -g -o main test_topx.cpp TopX.o LogsCount.o ThreadPool.o -lpthread
-ThreadPool.o : ThreadPool.cpp ThreadPool.h
-	g++ -g -c ThreadPool.cpp
-TopX.o : TopX.h TopX.cpp LogInfor.h
-	g++ -g -c TopX.cpp
-LogsCount.o: LogsCount.h LogsCount.cpp LogInfor.h
-	g++ -g -c LogsCount.cpp
+TARGET = test_main
+
+OBJS = $(patsubst %.cpp, %.o, $(wildcard *.cpp) )
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	g++ -g -o $@ $(OBJS) -lpthread
+
+.cpp.o:
+	g++ -g -c $<
+
 clean:
-	rm -rf main *.o *.gch
+	rm -f *.o
+	rm -f *.gcda *.gcno
+	rm -f test_main
+
